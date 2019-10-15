@@ -1,0 +1,25 @@
+game init attempt...
+SDL init success
+window creation success
+renderer creation success
+entering MenuState
+game init success!
+exiting MenuState
+Loading level:
+Version: 1.2
+Width:150 - Height:15
+Tile Width:32 - Tile Height:32
+adding texture assets/boss1.png with ID boss
+adding texture assets/bossexplosion.png with ID bossexplosion
+adding texture assets/clouds.png with ID clouds
+adding texture assets/enemy1.png with ID enemy1
+adding texture assets/enemy2.png with ID enemy2
+adding texture assets/enemy3.png with ID enemy3
+adding texture assets/explosion.png with ID explosion
+adding texture assets/largeexplosion.png with ID largeexplosion
+adding texture assets/loading.png with ID loading
+Couldn't open assets/loading.pngadding texture assets/heli.png with ID player
+adding texture assets/smallexplosion.png with ID smallexplosion
+adding texture assets/turret.png with ID turret
+adding texture blocks1.png with ID blocks1
+adding texture blocks2.png with ID blocks2
