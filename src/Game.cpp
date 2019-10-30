@@ -1,181 +1,191 @@
-//
-//  Game.cpp
-//  SDL Game Programming Book
-//
-//
 #include "Game.h"
-#include "TextureManager.h"
-#include "InputHandler.h"
-#include "MainMenuState.h"
-#include "GameObjectFactory.h"
-#include "MenuButton.h"
-#include "AnimatedGraphic.h"
-#include "Player.h"
-#include "ScrollingBackground.h"
-#include "SoundManager.h"
-#include "RoofTurret.h"
-#include "ShotGlider.h"
-#include "Eskeletor.h"
-#include "Level1Boss.h"
-#include "GameOverState.h"
-#include <iostream>
 
-using namespace std;
-
-Game* Game::s_pInstance = 0;
-
-
-Game::Game():
-m_pWindow(0),
-m_pRenderer(0),
-m_bRunning(false),
-m_pGameStateMachine(0),
-m_playerLives(3),
-m_scrollSpeed(0.8),
-m_bLevelComplete(false),
-m_bChangingState(false)
-{
-    // add some level files to an array
-    m_levelFiles.push_back("assets/map1.tmx");
-    m_levelFiles.push_back("assets/map2.tmx");
-    
-    // start at this level
-    m_currentLevel = 1;
+Game::Game() {
+  running = true;
+  displaySurface = NULL;
+  testSurface = NULL;
 }
 
-Game::~Game()
-{
-    // we must clean up after ourselves to prevent memory leaks
-    m_pRenderer= 0;
-    m_pWindow = 0;
+char* Game::getCwd() {
+  return cwd;
 }
 
+int Game::OnExecute() {
+  if (OnInit() == false) {
+    return -1;
+  }
 
-bool Game::init(const char* title, int xpos, int ypos, int width, int height, bool fullscreen)
-{
-    int flags = 0;
-    
-    // store the game width and height
-    m_gameWidth = width;
-    m_gameHeight = height;
-    
-    if(fullscreen)
-    {
-        flags = SDL_WINDOW_FULLSCREEN;
+  SDL_Event event;
+
+  while (running) {
+    while (SDL_PollEvent(&event)) {
+      OnEvent(&event);
     }
-    
-    // attempt to initialise SDL
-    if(SDL_Init(SDL_INIT_EVERYTHING) == 0)
-    {
-        cout << "SDL init success\n";
-        // init the window
-        m_pWindow = SDL_CreateWindow(title, xpos, ypos, width, height, flags);
-        
-        if(m_pWindow != 0) // window init success
-        {
-            cout << "window creation success\n";
-            m_pRenderer = SDL_CreateRenderer(m_pWindow, -1, SDL_RENDERER_ACCELERATED);
-            
-            if(m_pRenderer != 0) // renderer init success
-            {
-                cout << "renderer creation success\n";
-                SDL_SetRenderDrawColor(m_pRenderer, 0,0,0,255);
-            }
-            else
-            {
-                cout << "renderer init fail\n";
-                return false; // renderer init fail
-            }
-        }
-        else
-        {
-            cout << "window init fail\n";
-            return false; // window init fail
-        }
-    }
-    else
-    {
-        cout << "SDL init fail\n";
-        return false; // SDL init fail
-    }
-    
-    // add some sound effects - TODO move to better place
-    TheSoundManager::Instance()->load("assets/DST_ElectroRock.ogg", "music1", SOUND_MUSIC);
-    TheSoundManager::Instance()->load("assets/boom.wav", "explode", SOUND_SFX);
-    TheSoundManager::Instance()->load("assets/phaser.wav", "shoot", SOUND_SFX);
-    
-    TheSoundManager::Instance()->playMusic("music1", -1);
-    
-    //TheInputHandler::Instance()->initialiseJoysticks();
-    
-    // register the types for the game
-    TheGameObjectFactory::Instance()->registerType("MenuButton", new MenuButtonCreator());
-    TheGameObjectFactory::Instance()->registerType("Player", new PlayerCreator());
-    TheGameObjectFactory::Instance()->registerType("AnimatedGraphic", new AnimatedGraphicCreator());
-    TheGameObjectFactory::Instance()->registerType("ScrollingBackground", new ScrollingBackgroundCreator());
-    TheGameObjectFactory::Instance()->registerType("Turret", new TurretCreator());
-    TheGameObjectFactory::Instance()->registerType("Glider", new GliderCreator());
-    TheGameObjectFactory::Instance()->registerType("ShotGlider", new ShotGliderCreator());
-    TheGameObjectFactory::Instance()->registerType("RoofTurret", new RoofTurretCreator());
-    TheGameObjectFactory::Instance()->registerType("Eskeletor", new EskeletorCreator());
-    TheGameObjectFactory::Instance()->registerType("Level1Boss", new Level1BossCreator());
-    
-    // start the menu state
-    m_pGameStateMachine = new GameStateMachine();
-    m_pGameStateMachine->changeState(new MainMenuState());
-    
-    m_bRunning = true; // everything inited successfully, start the main loop
-    return true;
+
+    OnLoop();
+    OnRender();
+  }
+
+  OnCleanup();
+
+	return 0;
 }
 
-void Game::setCurrentLevel(int currentLevel)
-{
-    m_currentLevel = currentLevel;
-    m_pGameStateMachine->changeState(new GameOverState());
-    m_bLevelComplete = false;
+bool Game::OnInit() {
+  char tempPath[255];
+  if ((cwd = getcwd(NULL, 0)) == NULL) {
+    return false;
+  }
+  strcpy(tempPath, cwd);
+  strcat(cwd, "/../Debug/");
+
+
+  if (SDL_Init(SDL_INIT_EVERYTHING) < 0) {
+    return false;
+  }
+
+  if ((displaySurface = SDL_SetVideoMode(WINDOWWIDTH, WINDOWHEIGHT, 32, SDL_HWSURFACE | SDL_DOUBLEBUF)) == NULL) {
+    return false;
+  }
+
+  strcpy(tempPath, getCwd());
+  strcat(tempPath, "yoshi.png");
+  if ((testSurface = Surface::Load(tempPath)) == NULL) {
+    return false;
+  }
+
+  yoshiAnim.maxFrames = 8;
+  //yoshiAnim.oscillate = true;
+
+  if (entity1.Load(tempPath, 64, 64, 8) == false) {
+    return false;
+  }
+
+  if (entity2.Load(tempPath, 64, 64, 8) == false) {
+    return false;
+  }
+  entity2.x = 100;
+
+  Entity::entityList.push_back(&entity1);
+  Entity::entityList.push_back(&entity2);
+
+  if (player1.Load(tempPath, 64, 64, 8) == false) {
+    return false;
+  }
+
+  if (player2.Load(tempPath, 64, 64, 8) == false) {
+    return false;
+  }
+
+  player1.x = 200;
+  player2.x = 300;
+
+  Entity::entityList.push_back(&player1);
+  Entity::entityList.push_back(&player2);
+
+  Camera::cameraControl.targetMode = TARGET_MODE_CENTER;
+  Camera::cameraControl.setTarget(&player1.x, &player1.y);
+
+  strcpy(tempPath, getCwd());
+  strcat(tempPath, "maps\\1.area");
+  if (Area::areaControl.Load(tempPath) == false) {
+  //if (Area::areaControl.Load("C:\\Cheddamelt\\maps\\1.area") == false) {
+    return false;
+  }
+
+  SDL_EnableKeyRepeat(1, SDL_DEFAULT_REPEAT_INTERVAL / 3);
+
+  return true;
 }
 
-void Game::render()
-{
-    SDL_RenderClear(m_pRenderer);
-    
-
-		m_pGameStateMachine->render();
-
-
-    SDL_RenderPresent(m_pRenderer);
+void Game::OnEvent(SDL_Event* event) {
+  /*if (event->type == SDL_QUIT) {
+    running = false;
+  }*/
+  Event::OnEvent(event);
 }
 
-void Game::update()
-{
-	
-		m_pGameStateMachine->update();
-
+void Game::OnExit() {
+  running = false;
 }
 
-void Game::handleEvents()
-{
+void Game::OnLoop() {
+  yoshiAnim.OnAnimate();
 
-		TheInputHandler::Instance()->update();
+  for (int i = 0; i < Entity::entityList.size(); i++) {
+    if (!Entity::entityList[i])
+      continue;
 
+    Entity::entityList[i]->OnLoop();
+  }
+
+  FPS::fpsControl.OnLoop();
 }
 
-void Game::clean()
-{
-    cout << "cleaning game\n";
-    
-    TheInputHandler::Instance()->clean();
-    
-    m_pGameStateMachine->clean();
-    
-    m_pGameStateMachine = 0;
-    delete m_pGameStateMachine;
-    
-    TheTextureManager::Instance()->clearTextureMap();
-    
-    SDL_DestroyWindow(m_pWindow);
-    SDL_DestroyRenderer(m_pRenderer);
-    SDL_Quit();
+void Game::OnRender() {
+  //Surface::Draw(displaySurface, testSurface, 0, 0);
+  //Surface::DrawRegion(displaySurface, testSurface, 400, 0, 0, 0, 198, 140);
+  Area::areaControl.OnRender(displaySurface, -Camera::cameraControl.getX(), -Camera::cameraControl.getY());
+
+  Surface::DrawRegion(displaySurface, testSurface, 290, 220, 0, yoshiAnim.GetCurrentFrame() * 64, 64, 64);
+
+  for (int i = 0; i < Entity::entityList.size(); i++) {
+    if (!Entity::entityList[i])
+      continue;
+
+    Entity::entityList[i]->OnRender(displaySurface);
+  }
+
+  SDL_Flip(displaySurface);
 }
 
+void Game::OnCleanup() {
+  SDL_FreeSurface(testSurface);
+  SDL_FreeSurface(displaySurface);
 
+  for (int i = 0; i < Entity::entityList.size(); i++) {
+    if (!Entity::entityList[i])
+      continue;
+
+    Entity::entityList[i]->OnCleanup();
+  }
+  Entity::entityList.clear();
+
+  Area::areaControl.OnCleanup();
+
+  SDL_Quit();
+}
+
+void Game::OnKeyDown(SDLKey sym, SDLMod mod, Uint16 unicode) {
+  switch (sym) {
+    case SDLK_LEFT:
+      player1.moveLeft = true;
+      break;
+    case SDLK_RIGHT:
+      player1.moveRight = true;
+      break;
+    /*case SDLK_UP:
+      Camera::cameraControl.OnMove(0, -5);
+      break;
+    case SDLK_DOWN:
+      Camera::cameraControl.OnMove(0, 5);
+      break;
+    case SDLK_LEFT:
+      Camera::cameraControl.OnMove(-5, 0);
+      break;
+    case SDLK_RIGHT:
+      Camera::cameraControl.OnMove(5, 0);
+      break;*/
+  }
+}
+
+void Game::OnKeyUp(SDLKey sym, SDLMod mod, Uint16 unicode) {
+  switch (sym) {
+    case SDLK_LEFT:
+      player1.moveLeft = false;
+      break;
+    case SDLK_RIGHT:
+      player1.moveRight = false;
+      break;
+  }
+}
